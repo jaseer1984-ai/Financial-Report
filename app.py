@@ -496,36 +496,51 @@ def main():
             st.markdown(create_metric_card("Profit Margin", profit_margin, "", "margin"), unsafe_allow_html=True)
         
         # Charts Section
-        st.markdown("### 📊 Financial Analysis Charts")
+        st.markdown("### 📊 Zebra BI Financial Analysis")
         
-        # First row of charts
+        # KPI Dashboard (full width)
+        if show_kpi_dashboard:
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                st.plotly_chart(create_zebra_kpi_dashboard(df), use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Waterfall Chart (full width)
         if show_waterfall:
             with st.container():
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_enhanced_waterfall_chart(df), use_container_width=True)
+                st.plotly_chart(create_zebra_waterfall_chart(df), use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
         
-        # Second row of charts
-        chart_col1, chart_col2 = st.columns(2)
-        
-        with chart_col1:
-            if show_pie:
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_enhanced_pie_chart(df_filtered), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        with chart_col2:
-            if show_kpi:
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_kpi_chart(df), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Third row - detailed analysis
-        if show_bar:
+        # Variance Analysis (full width)
+        if show_variance:
             with st.container():
                 st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_enhanced_bar_chart(df_filtered), use_container_width=True)
+                st.plotly_chart(create_zebra_variance_chart(df_filtered), use_container_width=True)
                 st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Table Visualization (full width)
+        if show_table:
+            with st.container():
+                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                st.plotly_chart(create_zebra_table_chart(df_filtered), use_container_width=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Additional charts in columns
+        if show_pie or show_bar:
+            chart_col1, chart_col2 = st.columns(2)
+            
+            with chart_col1:
+                if show_pie:
+                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                    st.plotly_chart(create_enhanced_pie_chart(df_filtered), use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+            
+            with chart_col2:
+                if show_bar:
+                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+                    st.plotly_chart(create_enhanced_bar_chart(df_filtered), use_container_width=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
         
         # Data Table Section
         st.markdown("### 📋 Financial Data Table")
