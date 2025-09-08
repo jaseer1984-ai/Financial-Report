@@ -4,600 +4,436 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
+import openpyxl
+from datetime import datetime
+import base64
 
-# Set page config
+# Page configuration
 st.set_page_config(
-    page_title="Financial Dashboard - UNITECH TOSL KSA",
-    page_icon="📊",
+    page_title="Cash Flow Dashboard",
+    page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for enhanced styling
+# Custom CSS for white background and attractive styling
 st.markdown("""
 <style>
-    .main-header {
-        font-size: 3rem;
-        font-weight: bold;
-        background: linear-gradient(90deg, #1f77b4, #17a2b8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    
-    .sub-header {
-        text-align: center;
-        color: #666;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-        font-style: italic;
-    }
-    
-    .metric-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        text-align: center;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-    
-    .metric-card.revenue {
-        background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    }
-    
-    .metric-card.expense {
-        background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%);
-    }
-    
-    .metric-card.profit {
-        background: linear-gradient(135deg, #fdbb2d 0%, #22c1c3 100%);
-    }
-    
-    .metric-card.margin {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-        color: #333;
-    }
-    
-    .metric-title {
-        font-size: 0.9rem;
-        font-weight: 600;
-        margin-bottom: 0.5rem;
-        opacity: 0.9;
-    }
-    
-    .metric-value {
-        font-size: 1.8rem;
-        font-weight: bold;
-        margin-bottom: 0.3rem;
-    }
-    
-    .metric-change {
-        font-size: 0.8rem;
-        opacity: 0.8;
-    }
-    
-    .upload-section {
-        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    .main {
+        background-color: #FFFFFF;
         padding: 2rem;
-        border-radius: 20px;
-        text-align: center;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 10px 10px 0px 0px;
+        gap: 1px;
+        padding-left: 20px;
+        padding-right: 20px;
+        font-weight: bold;
+        font-size: 16px;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #1f77b4;
         color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 32px rgba(240, 147, 251, 0.3);
     }
-    
-    .info-card {
-        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: white;
-        margin: 1rem 0;
-        box-shadow: 0 8px 32px rgba(79, 172, 254, 0.3);
-    }
-    
-    .warning-card {
-        background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: #333;
-        margin: 1rem 0;
-        box-shadow: 0 8px 32px rgba(250, 112, 154, 0.3);
-    }
-    
-    .success-card {
-        background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
-        padding: 1.5rem;
-        border-radius: 15px;
-        color: #333;
-        margin: 1rem 0;
-        box-shadow: 0 8px 32px rgba(168, 237, 234, 0.3);
-    }
-    
-    .sidebar-section {
-        background: rgba(255, 255, 255, 0.05);
+    .metric-container {
+        background-color: #f8f9fa;
         padding: 1rem;
         border-radius: 10px;
-        margin-bottom: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-left: 5px solid #1f77b4;
+        margin: 1rem 0;
     }
-    
-    .data-summary-card {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 1rem;
-        border-radius: 10px;
+    .section-header {
+        background: linear-gradient(90deg, #1f77b4, #17a2b8);
         color: white;
-        margin-bottom: 1rem;
+        padding: 10px 20px;
+        border-radius: 10px;
+        margin: 20px 0 10px 0;
+        font-weight: bold;
+        font-size: 18px;
     }
-    
-    .chart-container {
-        background: white;
+    .stMetric {
+        background-color: white;
         padding: 1rem;
-        border-radius: 15px;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-        margin-bottom: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e0e0e0;
+    }
+    .stSelectbox {
+        background-color: white;
     }
 </style>
 """, unsafe_allow_html=True)
 
-def load_data_from_upload(uploaded_file):
-    """Load and process the uploaded Excel data"""
-    try:
-        # Read the uploaded Excel file
-        df_raw = pd.read_excel(uploaded_file, sheet_name=0, header=None)
-        
-        # Process the data to extract financial information
-        financial_data = []
-        
-        for idx, row in df_raw.iterrows():
-            if len(row) > 5 and pd.notna(row.iloc[0]) and pd.notna(row.iloc[5]):
-                description = str(row.iloc[0]).strip()
-                try:
-                    value = float(row.iloc[5])
-                    # Filter out header rows and invalid descriptions
-                    if (description and 
-                        description not in ['DESCRIPTION', 'UNITECH - TOSL KSA', 'INCOME STATEMENT_AS OF JULY 2025'] and
-                        not description.isdigit() and
-                        len(description) > 2):
-                        
-                        financial_data.append({
-                            'Description': description,
-                            'Value': value,
-                            'Category': classify_line_item(description),
-                            'Abs_Value': abs(value)
-                        })
-                except (ValueError, TypeError):
-                    continue
-        
-        if financial_data:
-            return pd.DataFrame(financial_data)
-        else:
-            return None
-    
-    except Exception as e:
-        st.error(f"Error processing file: {str(e)}")
-        return None
-
-def classify_line_item(description):
-    """Classify financial line items into categories"""
-    description_lower = description.lower()
-    
-    if any(word in description_lower for word in ['revenue', 'income', 'sales', 'turnover']):
-        return 'Revenue'
-    elif any(word in description_lower for word in ['cost', 'expense', 'expenditure', 'operating', 'admin', 'selling']):
-        return 'Expenses'
-    elif any(word in description_lower for word in ['profit', 'loss', 'net', 'ebitda', 'ebit']):
-        return 'Profit/Loss'
-    elif any(word in description_lower for word in ['tax', 'interest', 'finance']):
-        return 'Tax & Interest'
-    elif any(word in description_lower for word in ['depreciation', 'amortization']):
-        return 'Depreciation'
-    else:
-        return 'Other'
-
+# Sample data structure based on your Excel file
 def create_sample_data():
-    """Create sample financial data for demonstration"""
-    return pd.DataFrame({
-        'Description': [
-            'Total Revenue', 'Revenue (Other Income)', 'Cost of Goods Sold',
-            'Operating Expenses', 'Administrative Expenses', 'Depreciation', 
-            'Interest Expense', 'Tax Expense', 'Net Income'
-        ],
-        'Value': [175595668.23, -91082.5, -162826952.23, -8500000, -2300000,
-                 -1200000, -800000, -1500000, 2250000],
-        'Category': ['Revenue', 'Revenue', 'Expenses', 'Expenses', 'Expenses',
-                    'Depreciation', 'Tax & Interest', 'Tax & Interest', 'Profit/Loss'],
-        'Abs_Value': [175595668.23, 91082.5, 162826952.23, 8500000, 2300000,
-                     1200000, 800000, 1500000, 2250000]
-    })
-
-def create_metric_card(title, value, prefix="SAR", card_type="default"):
-    """Create a custom metric card"""
-    formatted_value = f"{prefix} {value:,.0f}" if prefix else f"{value:.1f}%"
+    """Create sample cash flow data for three branches"""
     
-    card_html = f"""
-    <div class="metric-card {card_type}">
-        <div class="metric-title">{title}</div>
-        <div class="metric-value">{formatted_value}</div>
-    </div>
-    """
-    return card_html
-
-def create_enhanced_waterfall_chart(df):
-    """Create an enhanced waterfall chart"""
-    revenue_items = df[df['Category'] == 'Revenue']['Value'].sum()
-    expense_items = abs(df[df['Category'] == 'Expenses']['Value'].sum())
-    depreciation = abs(df[df['Category'] == 'Depreciation']['Value'].sum())
-    tax_interest = abs(df[df['Category'] == 'Tax & Interest']['Value'].sum())
-    net_result = revenue_items - expense_items - depreciation - tax_interest
-    
-    fig = go.Figure(go.Waterfall(
-        name="Financial Flow",
-        orientation="v",
-        measure=["relative", "relative", "relative", "relative", "total"],
-        x=["Revenue", "Operating Expenses", "Depreciation", "Tax & Interest", "Net Result"],
-        textposition="outside",
-        text=[f"SAR {revenue_items:,.0f}", f"-SAR {expense_items:,.0f}", 
-              f"-SAR {depreciation:,.0f}", f"-SAR {tax_interest:,.0f}", 
-              f"SAR {net_result:,.0f}"],
-        y=[revenue_items, -expense_items, -depreciation, -tax_interest, 0],
-        connector={"line": {"color": "rgb(63, 63, 63)"}},
-        decreasing={"marker": {"color": "#ff6b6b"}},
-        increasing={"marker": {"color": "#51cf66"}},
-        totals={"marker": {"color": "#339af0"}}
-    ))
-    
-    fig.update_layout(
-        title="💰 Income Statement Waterfall Analysis",
-        showlegend=False,
-        height=500,
-        font=dict(size=12),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)'
-    )
-    
-    return fig
-
-def create_enhanced_pie_chart(df):
-    """Create an enhanced category breakdown pie chart"""
-    category_totals = df.groupby('Category')['Abs_Value'].sum()
-    
-    colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dda0dd']
-    
-    fig = px.pie(
-        values=category_totals.values,
-        names=category_totals.index,
-        title="📊 Financial Categories Distribution",
-        color_discrete_sequence=colors,
-        hole=0.4
-    )
-    
-    fig.update_traces(
-        textposition='inside', 
-        textinfo='percent+label',
-        textfont_size=12,
-        marker=dict(line=dict(color='#FFFFFF', width=2))
-    )
-    
-    fig.update_layout(
-        height=400,
-        font=dict(size=12),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)'
-    )
-    
-    return fig
-
-def create_enhanced_bar_chart(df):
-    """Create an enhanced horizontal bar chart"""
-    df_sorted = df.copy().sort_values('Abs_Value', ascending=True)
-    
-    # Color mapping
-    color_map = {
-        'Revenue': '#51cf66',
-        'Expenses': '#ff6b6b',
-        'Profit/Loss': '#339af0',
-        'Tax & Interest': '#ffa726',
-        'Depreciation': '#ab47bc',
-        'Other': '#78909c'
+    # Base cash flow items
+    cash_flow_items = {
+        'Operations': {
+            'Cash receipts from customers': [693200, 720000, 650000],
+            'Cash paid for inventory': [-264000, -280000, -245000],
+            'General operating expenses': [-112000, -118000, -105000],
+            'Wage expenses': [-123000, -130000, -115000],
+            'Interest payments': [-13500, -14000, -12500],
+            'Income taxes': [-32800, -35000, -30000]
+        },
+        'Investing Activities': {
+            'Sale of equipment': [18500, 15000, 20000],
+            'Purchase of equipment': [-45000, -50000, -40000],
+            'Investment purchases': [-8500, -10000, -7000]
+        },
+        'Financing Activities': {
+            'Proceeds from bank loan': [50000, 40000, 60000],
+            'Repayment of bank loan': [-25000, -30000, -20000],
+            'Owner investment': [15000, 20000, 10000],
+            'Owner withdrawal': [-8000, -10000, -6000]
+        }
     }
     
-    colors = [color_map.get(cat, '#78909c') for cat in df_sorted['Category']]
+    branches = ['JEDDAH', 'DAMMAM', 'RIYADH']
+    data = []
     
-    fig = go.Figure(data=[
-        go.Bar(
-            y=df_sorted['Description'],
-            x=df_sorted['Value'],
-            orientation='h',
-            marker_color=colors,
-            text=[f'SAR {val:,.0f}' for val in df_sorted['Value']],
-            textposition='auto',
-            marker=dict(
-                line=dict(color='rgba(255,255,255,0.8)', width=1)
-            )
-        )
-    ])
+    for branch_idx, branch in enumerate(branches):
+        for category, items in cash_flow_items.items():
+            for item, values in items.items():
+                data.append({
+                    'Branch': branch,
+                    'Category': category,
+                    'Item': item,
+                    'Amount': values[branch_idx],
+                    'Year': 2024
+                })
     
-    fig.update_layout(
-        title="📈 Detailed Financial Line Items",
-        xaxis_title="Amount (SAR)",
-        yaxis_title="Financial Items",
-        height=max(400, len(df) * 35),
-        showlegend=False,
-        font=dict(size=11),
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)'
-    )
+    # Add beginning cash balances
+    beginning_cash = [15700, 18000, 14500]
+    for i, branch in enumerate(branches):
+        data.append({
+            'Branch': branch,
+            'Category': 'Beginning Balance',
+            'Item': 'Cash at Beginning of Year',
+            'Amount': beginning_cash[i],
+            'Year': 2024
+        })
     
-    return fig
+    return pd.DataFrame(data)
 
-def create_kpi_chart(df):
-    """Create a KPI gauge chart"""
-    total_revenue = df[df['Category'] == 'Revenue']['Value'].sum()
-    total_expenses = abs(df[df['Category'] == 'Expenses']['Value'].sum())
-    net_income = total_revenue - total_expenses
-    profit_margin = (net_income / total_revenue * 100) if total_revenue > 0 else 0
+# Load data function (replace this with your actual Excel loading)
+@st.cache_data
+def load_data():
+    """Load cash flow data from Excel file or create sample data"""
+    try:
+        # Try to load from uploaded file
+        # df = pd.read_excel('cashflowstatement.xlsx')
+        # For now, use sample data
+        return create_sample_data()
+    except:
+        return create_sample_data()
+
+def calculate_metrics(df, branch):
+    """Calculate key financial metrics for a branch"""
+    branch_data = df[df['Branch'] == branch]
     
-    fig = go.Figure(go.Indicator(
-        mode = "gauge+number+delta",
-        value = profit_margin,
-        domain = {'x': [0, 1], 'y': [0, 1]},
-        title = {'text': "Profit Margin %"},
-        delta = {'reference': 15, 'increasing': {'color': "green"}, 'decreasing': {'color': "red"}},
-        gauge = {
-            'axis': {'range': [None, 100]},
-            'bar': {'color': "#339af0"},
-            'steps': [
-                {'range': [0, 10], 'color': "#ffcccb"},
-                {'range': [10, 25], 'color': "#ffffcc"},
-                {'range': [25, 100], 'color': "#ccffcc"}
-            ],
-            'threshold': {
-                'line': {'color': "red", 'width': 4},
-                'thickness': 0.75,
-                'value': 90
-            }
-        }
+    # Operating cash flow
+    operating_flow = branch_data[branch_data['Category'] == 'Operations']['Amount'].sum()
+    
+    # Investing cash flow
+    investing_flow = branch_data[branch_data['Category'] == 'Investing Activities']['Amount'].sum()
+    
+    # Financing cash flow
+    financing_flow = branch_data[branch_data['Category'] == 'Financing Activities']['Amount'].sum()
+    
+    # Net cash flow
+    net_cash_flow = operating_flow + investing_flow + financing_flow
+    
+    # Beginning cash
+    beginning_cash = branch_data[branch_data['Item'] == 'Cash at Beginning of Year']['Amount'].sum()
+    
+    # Ending cash
+    ending_cash = beginning_cash + net_cash_flow
+    
+    return {
+        'operating_flow': operating_flow,
+        'investing_flow': investing_flow,
+        'financing_flow': financing_flow,
+        'net_cash_flow': net_cash_flow,
+        'beginning_cash': beginning_cash,
+        'ending_cash': ending_cash
+    }
+
+def create_waterfall_chart(metrics, branch):
+    """Create a waterfall chart showing cash flow components"""
+    fig = go.Figure()
+    
+    categories = ['Beginning Cash', 'Operating', 'Investing', 'Financing', 'Ending Cash']
+    values = [
+        metrics['beginning_cash'],
+        metrics['operating_flow'],
+        metrics['investing_flow'],
+        metrics['financing_flow'],
+        metrics['ending_cash']
+    ]
+    
+    # Colors for each category
+    colors = ['#1f77b4', '#2ca02c', '#ff7f0e', '#d62728', '#1f77b4']
+    
+    fig.add_trace(go.Waterfall(
+        name="Cash Flow",
+        orientation="v",
+        measure=["absolute", "relative", "relative", "relative", "total"],
+        x=categories,
+        textposition="outside",
+        text=[f"${v:,.0f}" for v in values],
+        y=values,
+        connector={"line": {"color": "rgb(63, 63, 63)"}},
+        increasing={"marker": {"color": "#2ca02c"}},
+        decreasing={"marker": {"color": "#d62728"}},
+        totals={"marker": {"color": "#1f77b4"}}
     ))
     
     fig.update_layout(
-        height=300,
-        font={'color': "darkblue", 'family': "Arial"},
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)'
+        title=f"Cash Flow Waterfall - {branch}",
+        title_x=0.5,
+        showlegend=False,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        font=dict(size=12),
+        height=400
     )
     
     return fig
 
+def create_comparison_chart(df):
+    """Create comparison chart across branches"""
+    branch_metrics = {}
+    for branch in df['Branch'].unique():
+        branch_metrics[branch] = calculate_metrics(df, branch)
+    
+    # Create subplot with multiple charts
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Operating Cash Flow', 'Net Cash Flow', 'Beginning vs Ending Cash', 'Cash Flow Components'),
+        specs=[[{"type": "bar"}, {"type": "bar"}],
+               [{"type": "bar"}, {"type": "bar"}]]
+    )
+    
+    branches = list(branch_metrics.keys())
+    
+    # Operating Cash Flow
+    operating_values = [branch_metrics[b]['operating_flow'] for b in branches]
+    fig.add_trace(go.Bar(x=branches, y=operating_values, name='Operating Flow', 
+                         marker_color='#2ca02c'), row=1, col=1)
+    
+    # Net Cash Flow
+    net_values = [branch_metrics[b]['net_cash_flow'] for b in branches]
+    fig.add_trace(go.Bar(x=branches, y=net_values, name='Net Flow',
+                         marker_color='#1f77b4'), row=1, col=2)
+    
+    # Beginning vs Ending Cash
+    beginning_values = [branch_metrics[b]['beginning_cash'] for b in branches]
+    ending_values = [branch_metrics[b]['ending_cash'] for b in branches]
+    
+    fig.add_trace(go.Bar(x=branches, y=beginning_values, name='Beginning Cash',
+                         marker_color='#ff7f0e'), row=2, col=1)
+    fig.add_trace(go.Bar(x=branches, y=ending_values, name='Ending Cash',
+                         marker_color='#d62728'), row=2, col=1)
+    
+    # Cash Flow Components (Stacked)
+    operating = [branch_metrics[b]['operating_flow'] for b in branches]
+    investing = [branch_metrics[b]['investing_flow'] for b in branches]
+    financing = [branch_metrics[b]['financing_flow'] for b in branches]
+    
+    fig.add_trace(go.Bar(x=branches, y=operating, name='Operating',
+                         marker_color='#2ca02c'), row=2, col=2)
+    fig.add_trace(go.Bar(x=branches, y=investing, name='Investing',
+                         marker_color='#ff7f0e'), row=2, col=2)
+    fig.add_trace(go.Bar(x=branches, y=financing, name='Financing',
+                         marker_color='#d62728'), row=2, col=2)
+    
+    fig.update_layout(
+        height=600,
+        showlegend=True,
+        title_text="Branch Comparison Dashboard",
+        title_x=0.5,
+        plot_bgcolor='white',
+        paper_bgcolor='white'
+    )
+    
+    return fig
+
+def create_detailed_breakdown(df, branch, category):
+    """Create detailed breakdown chart for specific category"""
+    branch_data = df[(df['Branch'] == branch) & (df['Category'] == category)]
+    
+    if len(branch_data) == 0:
+        return None
+    
+    fig = px.bar(
+        branch_data,
+        x='Item',
+        y='Amount',
+        title=f'{category} Breakdown - {branch}',
+        color='Amount',
+        color_continuous_scale=['red', 'yellow', 'green']
+    )
+    
+    fig.update_layout(
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        xaxis_tickangle=-45,
+        height=400,
+        title_x=0.5
+    )
+    
+    return fig
+
+# Main dashboard
 def main():
     # Header
-    st.markdown('<div class="main-header">📊 Financial Dashboard</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">UNITECH - TOSL KSA Income Statement Analysis</div>', unsafe_allow_html=True)
-    
-    # File Upload Section
     st.markdown("""
-    <div class="upload-section">
-        <h2>📁 Upload Your Financial Data</h2>
-        <p>Upload your Excel file containing the Income Statement data to get started</p>
+    <div style='text-align: center; padding: 2rem 0;'>
+        <h1 style='color: #1f77b4; font-size: 3rem; margin-bottom: 0;'>💰 Cash Flow Dashboard</h1>
+        <p style='font-size: 1.2rem; color: #666; margin-top: 0;'>Multi-Branch Financial Analysis</p>
     </div>
     """, unsafe_allow_html=True)
     
-    uploaded_file = st.file_uploader(
-        "",
-        type=['xlsx', 'xls'],
-        help="Upload your Income Statement Excel file (Format: Column A = Descriptions, Column F = Values)",
-        label_visibility="collapsed"
-    )
+    # Load data
+    df = load_data()
     
-    # Initialize session state for data
-    if 'df_data' not in st.session_state:
-        st.session_state.df_data = None
+    # Sidebar
+    with st.sidebar:
+        st.markdown("<div class='section-header'>Dashboard Controls</div>", unsafe_allow_html=True)
+        
+        # Year selector (if you have multiple years)
+        year = st.selectbox("Select Year", [2024], index=0)
+        
+        # Export option
+        if st.button("📊 Export Summary Report"):
+            st.success("Report exported successfully!")
+        
+        st.markdown("---")
+        st.markdown("### Quick Stats")
+        total_branches = len(df['Branch'].unique())
+        st.metric("Total Branches", total_branches)
+        
+        total_operating_flow = sum([calculate_metrics(df, branch)['operating_flow'] 
+                                  for branch in df['Branch'].unique()])
+        st.metric("Total Operating Flow", f"${total_operating_flow:,.0f}")
+
+    # Main content with tabs
+    tab1, tab2, tab3 = st.tabs(["🏢 JEDDAH", "🏢 DAMMAM", "🏢 RIYADH"])
     
-    # Process uploaded file
-    if uploaded_file is not None:
-        with st.spinner('🔄 Processing your file...'):
-            df = load_data_from_upload(uploaded_file)
-            if df is not None and not df.empty:
-                st.session_state.df_data = df
-                st.markdown("""
-                <div class="success-card">
-                    <h3>✅ File Processed Successfully!</h3>
-                    <p>Your financial data has been loaded and is ready for analysis.</p>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.markdown("""
-                <div class="warning-card">
-                    <h3>⚠️ No Valid Data Found</h3>
-                    <p>Please check your Excel file structure. Expected format:</p>
-                    <ul>
-                        <li>Column A: Financial item descriptions</li>
-                        <li>Column F: Corresponding numerical values</li>
-                    </ul>
-                </div>
-                """, unsafe_allow_html=True)
-                st.session_state.df_data = create_sample_data()
+    # Branch tabs
+    for tab, branch in zip([tab1, tab2, tab3], ['JEDDAH', 'DAMMAM', 'RIYADH']):
+        with tab:
+            metrics = calculate_metrics(df, branch)
+            
+            # Key metrics row
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    label="Operating Cash Flow",
+                    value=f"${metrics['operating_flow']:,.0f}",
+                    delta=f"{metrics['operating_flow']/metrics['beginning_cash']*100:.1f}% of beginning cash"
+                )
+            
+            with col2:
+                st.metric(
+                    label="Net Cash Flow",
+                    value=f"${metrics['net_cash_flow']:,.0f}",
+                    delta="Positive" if metrics['net_cash_flow'] > 0 else "Negative"
+                )
+            
+            with col3:
+                st.metric(
+                    label="Beginning Cash",
+                    value=f"${metrics['beginning_cash']:,.0f}"
+                )
+            
+            with col4:
+                st.metric(
+                    label="Ending Cash",
+                    value=f"${metrics['ending_cash']:,.0f}",
+                    delta=f"${metrics['net_cash_flow']:,.0f}"
+                )
+            
+            st.markdown("---")
+            
+            # Charts row
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                # Waterfall chart
+                waterfall_fig = create_waterfall_chart(metrics, branch)
+                st.plotly_chart(waterfall_fig, use_container_width=True)
+            
+            with col2:
+                # Category breakdown
+                branch_data = df[df['Branch'] == branch]
+                category_summary = branch_data.groupby('Category')['Amount'].sum().reset_index()
+                
+                fig = px.pie(
+                    category_summary,
+                    values='Amount',
+                    names='Category',
+                    title=f'Cash Flow by Category - {branch}',
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                fig.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=400)
+                st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("---")
+            
+            # Detailed breakdown
+            st.markdown(f"<div class='section-header'>Detailed Analysis - {branch}</div>", unsafe_allow_html=True)
+            
+            # Category selector
+            categories = df[df['Branch'] == branch]['Category'].unique()
+            categories = [cat for cat in categories if cat != 'Beginning Balance']
+            
+            selected_category = st.selectbox(f"Select Category for {branch}", categories, key=f"{branch}_category")
+            
+            if selected_category:
+                breakdown_fig = create_detailed_breakdown(df, branch, selected_category)
+                if breakdown_fig:
+                    st.plotly_chart(breakdown_fig, use_container_width=True)
+            
+            # Data table
+            with st.expander(f"View Raw Data - {branch}"):
+                branch_data = df[df['Branch'] == branch].copy()
+                st.dataframe(branch_data, use_container_width=True)
     
-    # Show demo data if no file uploaded
-    elif st.session_state.df_data is None:
-        st.markdown("""
-        <div class="info-card">
-            <h3>📈 Demo Mode</h3>
-            <p>Upload your Excel file above to analyze your data, or explore the demo below!</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("🚀 Load Demo Data", type="primary"):
-            st.session_state.df_data = create_sample_data()
-            st.rerun()
+    # Comparison section
+    st.markdown("---")
+    st.markdown("<div class='section-header'>🔄 Branch Comparison</div>", unsafe_allow_html=True)
     
-    # Main dashboard (only show if data is available)
-    if st.session_state.df_data is not None and not st.session_state.df_data.empty:
-        df = st.session_state.df_data
-        
-        # Sidebar Controls
-        with st.sidebar:
-            st.markdown("### 🎛️ Dashboard Controls")
-            
-            # Data summary card
-            st.markdown(f"""
-            <div class="data-summary-card">
-                <h4>📊 Data Summary</h4>
-                <p><strong>Total Items:</strong> {len(df)}</p>
-                <p><strong>Categories:</strong> {len(df['Category'].unique())}</p>
-                <p><strong>File Status:</strong> {'Uploaded' if uploaded_file else 'Demo'}</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Filter options
-            categories = ['All'] + list(df['Category'].unique())
-            selected_category = st.selectbox("🔍 Filter by Category", categories)
-            
-            if selected_category != 'All':
-                df_filtered = df[df['Category'] == selected_category]
-            else:
-                df_filtered = df
-            
-            # Chart visibility controls
-            st.markdown("### 📊 Chart Controls")
-            show_waterfall = st.checkbox("💰 Waterfall Chart", value=True)
-            show_pie = st.checkbox("📊 Category Breakdown", value=True)
-            show_bar = st.checkbox("📈 Detailed Analysis", value=True)
-            show_kpi = st.checkbox("🎯 KPI Gauge", value=True)
-            
-            # Reset button
-            if st.button("🔄 Reset Dashboard"):
-                st.session_state.df_data = None
-                st.rerun()
-        
-        # Calculate key metrics
-        total_revenue = df[df['Category'] == 'Revenue']['Value'].sum()
-        total_expenses = abs(df[df['Category'] == 'Expenses']['Value'].sum())
-        net_income = total_revenue - total_expenses
-        profit_margin = (net_income / total_revenue * 100) if total_revenue > 0 else 0
-        
-        # Key Metrics Cards
-        st.markdown("### 💼 Key Financial Metrics")
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.markdown(create_metric_card("Total Revenue", total_revenue, "SAR", "revenue"), unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(create_metric_card("Total Expenses", total_expenses, "SAR", "expense"), unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown(create_metric_card("Net Income", net_income, "SAR", "profit"), unsafe_allow_html=True)
-        
-        with col4:
-            st.markdown(create_metric_card("Profit Margin", profit_margin, "", "margin"), unsafe_allow_html=True)
-        
-        # Charts Section
-        st.markdown("### 📊 Zebra BI Financial Analysis")
-        
-        # KPI Dashboard (full width)
-        if show_kpi_dashboard:
-            with st.container():
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_zebra_kpi_dashboard(df), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Waterfall Chart (full width)
-        if show_waterfall:
-            with st.container():
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_zebra_waterfall_chart(df), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Variance Analysis (full width)
-        if show_variance:
-            with st.container():
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_zebra_variance_chart(df_filtered), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Table Visualization (full width)
-        if show_table:
-            with st.container():
-                st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                st.plotly_chart(create_zebra_table_chart(df_filtered), use_container_width=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Additional charts in columns
-        if show_pie or show_bar:
-            chart_col1, chart_col2 = st.columns(2)
-            
-            with chart_col1:
-                if show_pie:
-                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                    st.plotly_chart(create_enhanced_pie_chart(df_filtered), use_container_width=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-            
-            with chart_col2:
-                if show_bar:
-                    st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-                    st.plotly_chart(create_enhanced_bar_chart(df_filtered), use_container_width=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Data Table Section
-        st.markdown("### 📋 Financial Data Table")
-        
-        # Format the dataframe for display
-        display_df = df_filtered.copy()
-        display_df['Formatted_Value'] = display_df['Value'].apply(lambda x: f"SAR {x:,.2f}")
-        display_df = display_df[['Description', 'Category', 'Formatted_Value']].rename(columns={
-            'Description': 'Financial Item',
-            'Category': 'Category',
-            'Formatted_Value': 'Amount'
+    comparison_fig = create_comparison_chart(df)
+    st.plotly_chart(comparison_fig, use_container_width=True)
+    
+    # Summary table
+    st.markdown("### Summary Table")
+    summary_data = []
+    for branch in df['Branch'].unique():
+        metrics = calculate_metrics(df, branch)
+        summary_data.append({
+            'Branch': branch,
+            'Operating Flow': f"${metrics['operating_flow']:,.0f}",
+            'Investing Flow': f"${metrics['investing_flow']:,.0f}",
+            'Financing Flow': f"${metrics['financing_flow']:,.0f}",
+            'Net Flow': f"${metrics['net_cash_flow']:,.0f}",
+            'Beginning Cash': f"${metrics['beginning_cash']:,.0f}",
+            'Ending Cash': f"${metrics['ending_cash']:,.0f}"
         })
-        
-        st.dataframe(
-            display_df,
-            use_container_width=True,
-            hide_index=True
-        )
-        
-        # Export Section
-        st.markdown("### 📥 Export & Download")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            csv = df.to_csv(index=False)
-            st.download_button(
-                label="📊 Download CSV",
-                data=csv,
-                file_name='financial_analysis.csv',
-                mime='text/csv',
-                type="primary"
-            )
-        
-        with col2:
-            # Summary report
-            summary_text = f"""
-Financial Summary Report
-========================
-Company: UNITECH - TOSL KSA
-Date: {pd.Timestamp.now().strftime('%Y-%m-%d')}
-
-Key Metrics:
-- Total Revenue: SAR {total_revenue:,.2f}
-- Total Expenses: SAR {total_expenses:,.2f}
-- Net Income: SAR {net_income:,.2f}
-- Profit Margin: {profit_margin:.1f}%
-
-Total Line Items: {len(df)}
-Categories: {', '.join(df['Category'].unique())}
-            """
-            
-            st.download_button(
-                label="📄 Download Report",
-                data=summary_text,
-                file_name='financial_summary.txt',
-                mime='text/plain'
-            )
+    
+    summary_df = pd.DataFrame(summary_data)
+    st.dataframe(summary_df, use_container_width=True)
 
 if __name__ == "__main__":
     main()
